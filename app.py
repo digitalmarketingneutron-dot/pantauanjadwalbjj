@@ -21,7 +21,6 @@ def load_data():
     try:
         df_raw = pd.read_csv(csv_url, header=None)
         
-        # Cari baris header
         header_row_idx = 0
         for i, row in df_raw.iterrows():
             if row.astype(str).str.contains('Hari Tanggal', case=False, na=False).any():
@@ -60,7 +59,12 @@ if not df.empty:
 # 4. SIDEBAR & FILTER
 # ==========================================
 st.sidebar.header("⚙️ Filter Jadwal")
-mode = st.sidebar.radio("Mode Tampilan:", ["Pilih Tanggal Spesifik", "Tampilkan Semua Data"])
+# MENAMBAHKAN OPSI RENTANG TANGGAL
+mode = st.sidebar.radio("Mode Tampilan:", [
+    "Pilih Tanggal Spesifik", 
+    "Pilih Rentang Tanggal", 
+    "Tampilkan Semua Data"
+])
 
 if mode == "Pilih Tanggal Spesifik":
     tanggal_input = st.sidebar.date_input("Pilih Tanggal:", value=datetime.today())
@@ -68,8 +72,26 @@ if mode == "Pilih Tanggal Spesifik":
         pilih_tanggal_dt = tanggal_input[0] if len(tanggal_input) > 0 else datetime.today().date()
     else:
         pilih_tanggal_dt = tanggal_input
-        
     df_filtered = df[df['Date_Obj'] == pilih_tanggal_dt].copy()
+
+elif mode == "Pilih Rentang Tanggal":
+    # FITUR BARU: RENTANG TANGGAL
+    rentang_input = st.sidebar.date_input(
+        "Pilih Rentang Tanggal:", 
+        value=(datetime.today().date(), datetime.today().date() + pd.Timedelta(days=3))
+    )
+    if isinstance(rentang_input, (list, tuple)):
+        if len(rentang_input) == 2:
+            start_date, end_date = rentang_input
+            df_filtered = df[(df['Date_Obj'] >= start_date) & (df['Date_Obj'] <= end_date)].copy()
+        elif len(rentang_input) == 1: # Jika pengguna baru klik 1 tanggal
+            start_date = rentang_input[0]
+            df_filtered = df[df['Date_Obj'] == start_date].copy()
+        else:
+            df_filtered = df.copy()
+    else:
+        df_filtered = df[df['Date_Obj'] == rentang_input].copy()
+
 else:
     df_filtered = df.copy()
 
@@ -80,7 +102,6 @@ if not df_filtered.empty:
     
     if nama_kolom_waktu in df_filtered.columns:
         start_list, end_list = [], []
-        # Solusi Error ValueError Length Mismatch: Memastikan append hanya 1 kali per baris
         for idx, row in df_filtered.iterrows():
             w = row[nama_kolom_waktu]
             d = row['Date_Obj']
@@ -95,7 +116,7 @@ if not df_filtered.empty:
                 val_start = pd.to_datetime(f"{date_str} {m.strip()}")
                 val_end = pd.to_datetime(f"{date_str} {s.strip()}")
             except:
-                pass # Jika gagal, nilainya akan tetap pd.NaT dan tidak crash
+                pass
             
             start_list.append(val_start)
             end_list.append(val_end)
@@ -103,14 +124,13 @@ if not df_filtered.empty:
         df_filtered['Waktu_Mulai'] = start_list
         df_filtered['Waktu_Selesai'] = end_list
         
-        # Buang data yang waktunya benar-benar tidak bisa dibaca (mencegah grafik crash)
         df_filtered = df_filtered.dropna(subset=['Waktu_Mulai', 'Waktu_Selesai'])
 
 # ==========================================
 # 5. TAMPILAN DASHBOARD
 # ==========================================
 if df_filtered.empty:
-    st.info("Tidak ada jadwal yang valid untuk ditampilkan.")
+    st.info("Tidak ada jadwal yang valid untuk ditampilkan pada filter yang dipilih.")
 else:
     st.metric("Total Jadwal Ditampilkan", len(df_filtered))
     
@@ -142,8 +162,8 @@ else:
     # ==========================================
     if k_studio in df_filtered.columns and k_pengajar in df_filtered.columns and len(df_filtered) > 0:
         
-        # Penyesuaian Sumbu Y untuk Mode Tampilkan Semua Data
-        if mode == "Tampilkan Semua Data":
+        # Penyesuaian Sumbu Y untuk Mode Rentang Tanggal / Semua Data
+        if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"]:
             df_filtered['STUDIO_TANGGAL'] = df_filtered[k_studio].astype(str) + " (" + df_filtered['Date_Obj'].astype(str) + ")"
             y_axis_col = 'STUDIO_TANGGAL'
         else:
@@ -164,7 +184,7 @@ else:
         
         # Konfigurasi Sumbu X
         fig.update_xaxes(
-            tickformat='%d %b\n%H:%M' if mode == "Tampilkan Semua Data" else '%H:%M',
+            tickformat='%d %b\n%H:%M' if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"] else '%H:%M',
             showgrid=True,
             gridwidth=1,
             gridcolor='lightgray',
