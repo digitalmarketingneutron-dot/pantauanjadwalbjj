@@ -38,7 +38,11 @@ def load_data():
         df = df.dropna(how='all')
         
         # Bersihkan nama kolom dari spasi yang tidak sengaja terketik di Google Sheet
-        df.columns = df.columns.str.strip()
+        df.columns = df.columns.astype(str).str.strip()
+        
+        # --- SOLUSI ERROR PLOTLY DUPLICATE ---
+        # Membuang nama kolom yang sama persis (duplikat) agar Plotly bisa merender grafik
+        df = df.loc[:, ~df.columns.duplicated()]
         
         return df
     except Exception as e:
@@ -192,9 +196,4 @@ else:
 st.markdown("---")
 st.subheader("📋 Detail Data Jadwal")
 # Tampilkan kolom-kolom yang relevan saja jika tersedia
-kolom_tampil = [k for k in ['WAKTU', 'STUDIO', 'PENGAJAR', 'MAPEL', 'KELAS', 'OP ZOOM'] if k in df_hari_ini.columns]
-if not kolom_tampil:
-    kolom_tampil = df_hari_ini.columns.tolist() # Tampilkan semua jika kolom tidak dikenali
-
-st.dataframe(df_hari_ini[kolom_tampil], use_container_width=True)
-st.caption("Aplikasi Pantauan Jadwal Otomatis")
+kolom_tampil = [k for k in ['WAKTU', 'STUDIO', 'PENGAJAR', 'MAPEL', '
