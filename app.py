@@ -20,6 +20,7 @@ def load_data():
     csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
     try:
         df_raw = pd.read_csv(csv_url, header=None)
+        # Cari baris header
         header_row_idx = 0
         for i, row in df_raw.iterrows():
             if row.astype(str).str.contains('Hari Tanggal', case=False, na=False).any():
@@ -65,7 +66,7 @@ if mode == "Pilih Tanggal Spesifik":
 else:
     df_filtered = df.copy()
 
-# Proses Waktu untuk Gantt Chart
+# Proses Waktu
 if not df_filtered.empty:
     kolom_waktu = 'WAKTU' if 'WAKTU' in df_filtered.columns else 'Waktu'
     start_list, end_list = [], []
@@ -95,7 +96,7 @@ else:
         group = group.sort_values('Waktu_Mulai')
         for i in range(len(group)-1):
             if group.iloc[i+1]['Waktu_Mulai'] < group.iloc[i]['Waktu_Selesai']:
-                st.error(f"⚠️ Bentrok di Studio: {studio} antara {group.iloc[i]['MAPEL']} dan {group.iloc[i+1]['MAPEL']}")
+                st.error(f"⚠️ Bentrok di Studio: {studio}")
                 bentrok = True
     if not bentrok: st.success("✅ Semua jadwal aman.")
 
@@ -105,8 +106,8 @@ else:
     fig.layout.xaxis.tickformat = '%H:%M'
     st.plotly_chart(fig, use_container_width=True)
 
-    # Tabel dengan pembersihan NaN agar tidak error
+    # Tabel dengan pembersihan data
     st.subheader("📋 Tabel Data")
+    # Drop kolom bantu, lalu ubah semua NaN menjadi '-' dan paksa jadi string agar JSON aman
     df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai'], errors='ignore')
-    # Mengubah semua sel kosong menjadi "-" agar tidak menyebabkan error JSON
-    st.dataframe(df_tampil.fillna("-"), use_container_width=True)
+    st.dataframe(df_tampil.fillna("-").astype(str), use_container_width=True)
