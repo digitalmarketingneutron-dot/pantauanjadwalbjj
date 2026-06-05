@@ -31,7 +31,6 @@ def load_data():
         df = df_raw.iloc[header_row_idx+1:].copy()
         
         # PEMBERSIHAN NAMA KOLOM MAKSIMAL
-        # Memaksa SEMUA nama kolom menjadi STRING (str) untuk mencegah TypeError
         df.columns = [str(c).strip().upper() for c in df_raw.iloc[header_row_idx]]
         
         df = df.reset_index(drop=True).dropna(how='all')
@@ -80,7 +79,6 @@ else:
 
 # Proses Waktu
 if not df_filtered.empty:
-    # MENGGUNAKAN str(col) AGAR KEBAL ERROR FLOAT/NAN
     kolom_waktu = [col for col in df_filtered.columns if 'WAKTU' in str(col)]
     nama_kolom_waktu = kolom_waktu[0] if len(kolom_waktu) > 0 else 'WAKTU'
     
@@ -129,11 +127,38 @@ else:
     
     if not bentrok: st.success("✅ Semua jadwal aman.")
 
-    # Visualisasi
+    # ==========================================
+    # VISUALISASI DENGAN TEKS & GARIS VERTIKAL
+    # ==========================================
     if k_studio in df_filtered.columns and k_pengajar in df_filtered.columns:
-        fig = px.timeline(df_filtered, x_start="Waktu_Mulai", x_end="Waktu_Selesai", y=k_studio, color=k_pengajar, hover_name=k_mapel)
+        fig = px.timeline(
+            df_filtered, 
+            x_start="Waktu_Mulai", 
+            x_end="Waktu_Selesai", 
+            y=k_studio, 
+            color=k_pengajar, 
+            hover_name=k_mapel,
+            text=k_pengajar  # Menambahkan nama pengajar sebagai teks di grafik
+        )
+        
         fig.update_yaxes(autorange="reversed")
-        fig.layout.xaxis.tickformat = '%H:%M'
+        
+        # Konfigurasi posisi teks agar selalu di tengah dalam blok
+        fig.update_traces(
+            textposition='inside', 
+            insidetextanchor='middle'
+        )
+        
+        # Konfigurasi Sumbu X (Menambahkan Garis Vertikal)
+        fig.update_xaxes(
+            tickformat='%H:%M',
+            showgrid=True,           # Aktifkan garis vertikal
+            gridwidth=1,             # Ketebalan garis
+            gridcolor='lightgray',   # Warna garis bantu
+            griddash='dot',          # Format garis (putus-putus agar rapi)
+            dtick=1800000            # Jarak antar garis vertikal setiap 30 menit (1.800.000 ms)
+        )
+        
         st.plotly_chart(fig, use_container_width=True)
 
     # Tabel Data
