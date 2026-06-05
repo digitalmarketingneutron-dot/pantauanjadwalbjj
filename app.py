@@ -20,7 +20,6 @@ def load_data():
     csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
     try:
         df_raw = pd.read_csv(csv_url, header=None)
-        # Cari baris header
         header_row_idx = 0
         for i, row in df_raw.iterrows():
             if row.astype(str).str.contains('Hari Tanggal', case=False, na=False).any():
@@ -100,10 +99,13 @@ else:
                 bentrok = True
     if not bentrok: st.success("✅ Semua jadwal aman.")
 
+    # Grafik
     fig = px.timeline(df_filtered, x_start="Waktu_Mulai", x_end="Waktu_Selesai", y="STUDIO", color="PENGAJAR", hover_name="MAPEL")
     fig.update_yaxes(autorange="reversed")
     fig.layout.xaxis.tickformat = '%H:%M'
     st.plotly_chart(fig, use_container_width=True)
 
+    # Tabel dengan pembersihan NaN
     st.subheader("📋 Tabel Data")
-    st.dataframe(df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai'], errors='ignore'), use_container_width=True)
+    df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai'], errors='ignore')
+    st.dataframe(df_tampil.fillna("-"), use_container_width=True)
