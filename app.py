@@ -80,19 +80,25 @@ if not df_filtered.empty:
     
     if nama_kolom_waktu in df_filtered.columns:
         start_list, end_list = [], []
-        # Gunakan iterrows untuk menempelkan waktu ke tanggal aslinya masing-masing
+        # Solusi Error ValueError Length Mismatch: Memastikan append hanya 1 kali per baris
         for idx, row in df_filtered.iterrows():
             w = row[nama_kolom_waktu]
             d = row['Date_Obj']
+            
+            val_start = pd.NaT
+            val_end = pd.NaT
+            
             try:
                 m, s = str(w).upper().replace('WIB', '').replace('.', ':').split('-')
-                # Pakai tanggal asli jika ada, jika tidak pakai hari ini
                 date_str = d.strftime('%Y-%m-%d') if pd.notna(d) else datetime.today().strftime('%Y-%m-%d')
                 
-                start_list.append(pd.to_datetime(f"{date_str} {m.strip()}"))
-                end_list.append(pd.to_datetime(f"{date_str} {s.strip()}"))
+                val_start = pd.to_datetime(f"{date_str} {m.strip()}")
+                val_end = pd.to_datetime(f"{date_str} {s.strip()}")
             except:
-                start_list.append(pd.NaT); end_list.append(pd.NaT)
+                pass # Jika gagal, nilainya akan tetap pd.NaT dan tidak crash
+            
+            start_list.append(val_start)
+            end_list.append(val_end)
                 
         df_filtered['Waktu_Mulai'] = start_list
         df_filtered['Waktu_Selesai'] = end_list
@@ -121,7 +127,6 @@ else:
     # Deteksi Bentrok (Dikelompokkan berdasarkan STUDIO dan TANGGAL)
     bentrok = False
     if k_studio in df_filtered.columns and k_mapel in df_filtered.columns:
-        # Group by gabungan agar hari berbeda tidak dianggap bentrok
         for (studio, tgl), group in df_filtered.groupby([k_studio, 'Date_Obj']):
             group = group.sort_values('Waktu_Mulai')
             for i in range(len(group)-1):
@@ -137,9 +142,9 @@ else:
     # ==========================================
     if k_studio in df_filtered.columns and k_pengajar in df_filtered.columns and len(df_filtered) > 0:
         
-        # Untuk mode semua data, kita tambahkan tanggal ke nama studio agar grafiknya jelas
+        # Penyesuaian Sumbu Y untuk Mode Tampilkan Semua Data
         if mode == "Tampilkan Semua Data":
-            df_filtered['STUDIO_TANGGAL'] = df_filtered[k_studio] + " (" + df_filtered['Date_Obj'].astype(str) + ")"
+            df_filtered['STUDIO_TANGGAL'] = df_filtered[k_studio].astype(str) + " (" + df_filtered['Date_Obj'].astype(str) + ")"
             y_axis_col = 'STUDIO_TANGGAL'
         else:
             y_axis_col = k_studio
