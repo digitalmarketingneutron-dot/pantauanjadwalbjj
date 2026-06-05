@@ -195,5 +195,13 @@ else:
 # ==========================================
 st.markdown("---")
 st.subheader("📋 Detail Data Jadwal")
-# Tampilkan kolom-kolom yang relevan saja jika tersedia
-kolom_tampil = [k for k in ['WAKTU', 'STUDIO', 'PENGAJAR', 'MAPEL', '
+
+# Ditulis terpisah agar tidak mudah terpotong saat proses copy-paste
+daftar_kolom_utama = ['WAKTU', 'STUDIO', 'PENGAJAR', 'MAPEL', 'KELAS', 'OP ZOOM']
+kolom_tampil = [k for k in daftar_kolom_utama if k in df_hari_ini.columns]
+
+if not kolom_tampil:
+    kolom_tampil = df_hari_ini.columns.tolist() # Tampilkan semua jika kolom tidak dikenali
+
+st.dataframe(df_hari_ini[kolom_tampil], use_container_width=True)
+st.caption("Aplikasi Pantauan Jadwal Otomatis")
