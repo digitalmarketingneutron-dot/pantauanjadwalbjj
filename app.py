@@ -19,16 +19,9 @@ def load_data():
     gid = "1652385748"
     csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
     try:
-        df_raw = pd.read_csv(csv_url, header=None)
-        # Cari baris header
-        header_row_idx = 0
-        for i, row in df_raw.iterrows():
-            if row.astype(str).str.contains('Hari Tanggal', case=False, na=False).any():
-                header_row_idx = i
-                break
-        df = df_raw.iloc[header_row_idx+1:].copy()
-        df.columns = df_raw.iloc[header_row_idx].astype(str).str.strip()
-        df = df.reset_index(drop=True).dropna(how='all')
+        df = pd.read_csv(csv_url)
+        # Hapus baris kosong dan kolom duplikat
+        df = df.dropna(how='all')
         df = df.loc[:, ~df.columns.duplicated()]
         return df
     except Exception as e:
@@ -51,7 +44,7 @@ def parse_date_robust(date_val):
     return None
 
 if not df.empty:
-    kolom_tanggal = 'Hari Tanggal' if 'Hari Tanggal' in df.columns else df.columns[0]
+    kolom_tanggal = 'Hari Tanggal'
     df['Date_Obj'] = df[kolom_tanggal].apply(parse_date_robust)
 
 # ==========================================
@@ -68,9 +61,8 @@ else:
 
 # Proses Waktu
 if not df_filtered.empty:
-    kolom_waktu = 'WAKTU' if 'WAKTU' in df_filtered.columns else 'Waktu'
     start_list, end_list = [], []
-    for w in df_filtered[kolom_waktu]:
+    for w in df_filtered['WAKTU']:
         try:
             m, s = str(w).upper().replace('WIB', '').replace('.', ':').split('-')
             today = datetime.today().strftime('%Y-%m-%d')
@@ -106,8 +98,8 @@ else:
     fig.layout.xaxis.tickformat = '%H:%M'
     st.plotly_chart(fig, use_container_width=True)
 
-    # Tabel dengan pembersihan data
+    # Tabel dengan pembersihan total (mengubah NaN jadi string '-')
     st.subheader("📋 Tabel Data")
-    # Drop kolom bantu, lalu ubah semua NaN menjadi '-' dan paksa jadi string agar JSON aman
     df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai'], errors='ignore')
-    st.dataframe(df_tampil.fillna("-").astype(str), use_container_width=True)
+    # KONVERSI SEMUA DATA KE STRING SEBELUM DITAMPILKAN
+    st.dataframe(df_tampil.astype(str).replace('nan', '-'), use_container_width=True)
