@@ -65,7 +65,7 @@ if mode == "Pilih Tanggal Spesifik":
 else:
     df_filtered = df.copy()
 
-# Proses Waktu
+# Proses Waktu untuk Gantt Chart
 if not df_filtered.empty:
     kolom_waktu = 'WAKTU' if 'WAKTU' in df_filtered.columns else 'Waktu'
     start_list, end_list = [], []
@@ -99,13 +99,14 @@ else:
                 bentrok = True
     if not bentrok: st.success("✅ Semua jadwal aman.")
 
-    # Grafik
+    # Visualisasi
     fig = px.timeline(df_filtered, x_start="Waktu_Mulai", x_end="Waktu_Selesai", y="STUDIO", color="PENGAJAR", hover_name="MAPEL")
     fig.update_yaxes(autorange="reversed")
     fig.layout.xaxis.tickformat = '%H:%M'
     st.plotly_chart(fig, use_container_width=True)
 
-    # Tabel dengan pembersihan NaN
+    # Tabel dengan pembersihan NaN agar tidak error
     st.subheader("📋 Tabel Data")
     df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai'], errors='ignore')
+    # Mengubah semua sel kosong menjadi "-" agar tidak menyebabkan error JSON
     st.dataframe(df_tampil.fillna("-"), use_container_width=True)
