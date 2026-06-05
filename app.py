@@ -2,6 +2,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import locale
+
+# Pengaturan locale untuk mengenali nama bulan Indonesia
+try:
+    locale.setlocale(locale.LC_TIME, 'id_ID.UTF-8')
+except:
+    pass # Jika sistem server tidak mendukung, kita gunakan cara manual
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN
@@ -10,7 +17,7 @@ st.set_page_config(page_title="Sistem Pantauan Jadwal", page_icon="📅", layout
 st.title("📊 Dashboard Pantauan & Antisipasi Jadwal Studio")
 
 # ==========================================
-# 2. FUNGSI PENARIKAN DATA SUPER PINTAR
+# 2. FUNGSI LOAD DATA
 # ==========================================
 @st.cache_data(ttl=60)
 def load_data():
@@ -20,138 +27,88 @@ def load_data():
     
     try:
         df_raw = pd.read_csv(csv_url, header=None)
-        
         header_row_idx = 0
         for i, row in df_raw.iterrows():
             if row.astype(str).str.contains('Hari Tanggal', case=False, na=False).any():
                 header_row_idx = i
                 break
-                
+        
         df = df_raw.iloc[header_row_idx+1:].copy()
-        df.columns = df_raw.iloc[header_row_idx]
+        df.columns = df_raw.iloc[header_row_idx].astype(str).str.strip()
         df = df.reset_index(drop=True)
         df = df.dropna(how='all')
-        df.columns = df.columns.astype(str).str.strip()
-        
-        # Hapus kolom duplikat agar tidak error di Plotly
         df = df.loc[:, ~df.columns.duplicated()]
-        
         return df
     except Exception as e:
-        st.error(f"Gagal menarik data dari Google Sheets. Error: {e}")
+        st.error(f"Error memuat data: {e}")
         return pd.DataFrame()
 
 df = load_data()
 
-if df.empty:
-    st.warning("Data kosong atau belum bisa dimuat.")
-    st.stop()
-
 # ==========================================
-# 3. FUNGSI PEMROSESAN WAKTU
+# 3. FUNGSI PENGOLAHAN TANGGAL & WAKTU
 # ==========================================
-def process_time_columns(df):
-    df_clean = df.copy()
-    start_times = []
-    end_times = []
-    
-    kolom_waktu = 'WAKTU' if 'WAKTU' in df_clean.columns else 'Waktu'
-    
-    for waktu in df_clean[kolom_waktu]:
-        try:
-            waktu_str = str(waktu).upper().replace('WIB', '').strip()
-            waktu_str = waktu_str.replace('.', ':') 
-            mulai_str, selesai_str = waktu_str.split('-')
-            
-            dummy_date = datetime.today().strftime('%Y-%m-%d')
-            start_dt = pd.to_datetime(f"{dummy_date} {mulai_str.strip()}")
-            end_dt = pd.to_datetime(f"{dummy_date} {selesai_str.strip()}")
-            
-            start_times.append(start_dt)
-            end_times.append(end_dt)
-        except:
-            start_times.append(pd.NaT)
-            end_times.append(pd.NaT)
-            
-    df_clean['Waktu_Mulai'] = start_times
-    df_clean['Waktu_Selesai'] = end_times
-    return df_clean.dropna(subset=['Waktu_Mulai', 'Waktu_Selesai'])
-
-# ==========================================
-# 4. FILTERING SIDEBAR (DENGAN KALENDER)
-# ==========================================
-st.sidebar.header("⚙️ Filter Jadwal")
-
-def convert_to_date(date_str):
+def parse_date(date_str):
+    """Mengubah 'Senin, 01 Juni 2026' menjadi objek date"""
     try:
-        # Mengambil bagian tanggal saja (misal: "01 Juni 2026")
-        date_part = str(date_str).split(', ')[1] 
-        return datetime.strptime(date_part, '%d %B %Y')
+        clean_str = str(date_str).split(', ')[-1].strip()
+        return datetime.strptime(clean_str, '%d %B %Y').date()
     except:
         return None
 
-kolom_tanggal = 'Hari Tanggal' if 'Hari Tanggal' in df.columns else df.columns[0]
-df['Date_Obj'] = df[kolom_tanggal].apply(convert_to_date)
-
-pilih_tanggal_dt = st.sidebar.date_input(
-    "Pilih Tanggal Pantauan:",
-    value=datetime.today()
-)
-
-df_hari_ini = df[df['Date_Obj'].dt.date == pilih_tanggal_dt].copy()
-df_hari_ini = process_time_columns(df_hari_ini)
-
-if st.sidebar.button("🔄 Refresh Data"):
-    st.cache_data.clear()
-    st.rerun()
+if not df.empty:
+    kolom_tanggal = 'Hari Tanggal' if 'Hari Tanggal' in df.columns else df.columns[0]
+    df['Date_Obj'] = df[kolom_tanggal].apply(parse_date)
 
 # ==========================================
-# 5. ENGINE DETEKSI BENTROK
+# 4. SIDEBAR KALENDER & FILTER
 # ==========================================
-st.markdown(f"### Jadwal untuk: **{pilih_tanggal_dt.strftime('%d %B %Y')}**")
+st.sidebar.header("⚙️ Filter Jadwal")
+pilih_tanggal_dt = st.sidebar.date_input("Pilih Tanggal:", value=datetime.today())
 
-kolom_studio = 'STUDIO' if 'STUDIO' in df.columns else 'Studio'
-kolom_mapel = 'MAPEL' if 'MAPEL' in df.columns else 'Mapel'
-kolom_waktu_asli = 'WAKTU' if 'WAKTU' in df.columns else 'Waktu'
-kolom_pengajar = 'PENGAJAR' if 'PENGAJAR' in df.columns else df.columns[3]
+# Filter data
+df_hari_ini = df[df['Date_Obj'] == pilih_tanggal_dt].copy()
 
-bentrok_list = []
+# Proses Waktu untuk Gantt Chart
 if not df_hari_ini.empty:
-    for studio, group in df_hari_ini.groupby(kolom_studio):
-        group = group.sort_values(by='Waktu_Mulai')
-        prev_end = pd.NaT
-        prev_mapel = ""
-        prev_waktu = ""
-        
-        for index, row in group.iterrows():
-            if pd.notna(prev_end) and row['Waktu_Mulai'] < prev_end:
-                bentrok_list.append({'Studio': studio, 'A1': f"{prev_mapel} ({prev_waktu})", 'A2': f"{row[kolom_mapel]} ({row[kolom_waktu_asli]})"})
-            
-            if pd.isna(prev_end) or row['Waktu_Selesai'] > prev_end:
-                prev_end = row['Waktu_Selesai']
-                prev_mapel = row[kolom_mapel]
-                prev_waktu = row[kolom_waktu_asli]
+    kolom_waktu = 'WAKTU' if 'WAKTU' in df_hari_ini.columns else 'Waktu'
+    start_list, end_list = [], []
+    for w in df_hari_ini[kolom_waktu]:
+        try:
+            m, s = str(w).upper().replace('WIB', '').replace('.', ':').split('-')
+            today = datetime.today().strftime('%Y-%m-%d')
+            start_list.append(pd.to_datetime(f"{today} {m.strip()}"))
+            end_list.append(pd.to_datetime(f"{today} {s.strip()}"))
+        except:
+            start_list.append(pd.NaT); end_list.append(pd.NaT)
+    df_hari_ini['Waktu_Mulai'] = start_list
+    df_hari_ini['Waktu_Selesai'] = end_list
+    df_hari_ini = df_hari_ini.dropna(subset=['Waktu_Mulai'])
 
-if bentrok_list:
-    st.error("🚨 TERDETEKSI BENTROK!")
-    for b in bentrok_list:
-        st.warning(f"**{b['Studio']}**: {b['A1']} vs {b['A2']}")
+# ==========================================
+# 5. TAMPILAN DASHBOARD
+# ==========================================
+if df_hari_ini.empty:
+    st.info(f"Tidak ada jadwal ditemukan untuk tanggal: {pilih_tanggal_dt}")
 else:
-    st.success("✅ Jadwal Aman")
+    col1, col2 = st.columns(2)
+    col1.metric("Total Jadwal", len(df_hari_ini))
+    
+    # Deteksi Bentrok
+    bentrok = False
+    for studio, group in df_hari_ini.groupby('STUDIO'):
+        group = group.sort_values('Waktu_Mulai')
+        for i in range(len(group)-1):
+            if group.iloc[i+1]['Waktu_Mulai'] < group.iloc[i]['Waktu_Selesai']:
+                st.error(f"⚠️ Bentrok di {studio}!")
+                bentrok = True
+    if not bentrok: st.success("✅ Semua jadwal aman.")
 
-# ==========================================
-# 6. VISUALISASI TIMELINE
-# ==========================================
-if not df_hari_ini.empty:
-    fig = px.timeline(df_hari_ini, x_start="Waktu_Mulai", x_end="Waktu_Selesai", y=kolom_studio, color=kolom_pengajar, hover_name=kolom_mapel)
+    # Timeline
+    fig = px.timeline(df_hari_ini, x_start="Waktu_Mulai", x_end="Waktu_Selesai", y="STUDIO", color="PENGAJAR")
     fig.update_yaxes(autorange="reversed")
     fig.layout.xaxis.tickformat = '%H:%M'
     st.plotly_chart(fig, use_container_width=True)
 
-# ==========================================
-# 7. TABEL DETAIL
-# ==========================================
-st.subheader("📋 Detail Jadwal")
-cols = ['WAKTU', 'STUDIO', 'PENGAJAR', 'MAPEL', 'KELAS']
-tampil = [c for c in cols if c in df_hari_ini.columns]
-st.dataframe(df_hari_ini[tampil], use_container_width=True)
+    # Tabel
+    st.dataframe(df_hari_ini.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai'], errors='ignore'), use_container_width=True)
