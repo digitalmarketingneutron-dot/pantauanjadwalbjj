@@ -140,10 +140,11 @@ else:
     k_pengajar = k_pengajar[0] if k_pengajar else 'PENGAJAR'
     
     # ==========================================
-    # SISTEM DETEKSI BENTROK PINTAR
+    # DETEKSI BENTROK
     # ==========================================
     bentrok = False
     bentrok_indices = set()
+    df_filtered['Status_Bentrok'] = 'Aman'  # Penanda default
     
     if k_studio in df_filtered.columns and k_mapel in df_filtered.columns:
         for (studio, tgl), group in df_filtered.groupby([k_studio, 'Date_Obj']):
@@ -153,20 +154,29 @@ else:
                     tgl_str = tgl.strftime('%d-%b-%Y') if pd.notna(tgl) else "Tanggal Tidak Diketahui"
                     st.error(f"⚠️ Bentrok di **{studio}** pada **{tgl_str}** antara {group.iloc[i][k_mapel]} dan {group.iloc[i+1][k_mapel]}")
                     
-                    # Menyimpan ID baris yang bentrok untuk ditampilkan di tabel khusus
-                    bentrok_indices.add(group.index[i])
-                    bentrok_indices.add(group.index[i+1])
+                    idx_1 = group.index[i]
+                    idx_2 = group.index[i+1]
+                    
+                    bentrok_indices.add(idx_1)
+                    bentrok_indices.add(idx_2)
+                    
+                    # Tandai baris yang bentrok
+                    df_filtered.loc[idx_1, 'Status_Bentrok'] = 'Bentrok'
+                    df_filtered.loc[idx_2, 'Status_Bentrok'] = 'Bentrok'
+                    
                     bentrok = True
     
-    # Menampilkan Tabel Khusus Jika Ada Bentrok
     if bentrok:
-        st.warning("🚨 **TABEL EVALUASI: Rincian Jadwal yang Bentrok (Harap Segera Direvisi):**")
+        st.warning("🚨 **TABEL EVALUASI: Rincian Jadwal yang Bentrok:**")
         df_bentrok = df_filtered.loc[list(bentrok_indices)].sort_values(['Date_Obj', k_studio, 'Waktu_Mulai'])
-        df_tampil_bentrok = df_bentrok.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai', 'STUDIO_TANGGAL'], errors='ignore')
+        df_tampil_bentrok = df_bentrok.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai', 'STUDIO_TANGGAL', 'Status_Bentrok'], errors='ignore')
         st.dataframe(df_tampil_bentrok.astype(str).replace(['nan', 'None', '<NA>', 'NaN'], '-'), use_container_width=True)
     else:
         st.success("✅ Semua jadwal aman. Tidak ada tumpang tindih.")
 
+    # ==========================================
+    # VISUALISASI GRAFIK
+    # ==========================================
     if k_studio in df_filtered.columns and k_pengajar in df_filtered.columns and len(df_filtered) > 0:
         if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"]:
             df_filtered['STUDIO_TANGGAL'] = df_filtered[k_studio].astype(str) + " (" + df_filtered['Date_Obj'].astype(str) + ")"
@@ -174,6 +184,7 @@ else:
         else:
             y_axis_col = k_studio
 
+        # Gambar Grafik
         fig = px.timeline(
             df_filtered, 
             x_start="Waktu_Mulai", 
@@ -182,7 +193,8 @@ else:
             color=k_pengajar, 
             hover_name=k_mapel,
             text=k_pengajar,
-            opacity=0.7 # FITUR BARU: Efek transparan agar blok yang tumpang tindih terlihat saling menimpa
+            opacity=0.6, # Membuat sedikit transparan agar tumpukan (overlap) makin jelas terlihat
+            pattern_shape="Status_Bentrok" # FITUR BARU: Blok yang bentrok akan punya pola arsiran
         )
         
         fig.update_yaxes(autorange="reversed")
@@ -241,5 +253,5 @@ else:
         st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("📋 Tabel Data Semua Jadwal")
-    df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai', 'STUDIO_TANGGAL'], errors='ignore')
+    df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai', 'STUDIO_TANGGAL', 'Status_Bentrok'], errors='ignore')
     st.dataframe(df_tampil.astype(str).replace(['nan', 'None', '<NA>', 'NaN'], '-'), use_container_width=True)
