@@ -188,7 +188,8 @@ else:
             showgrid=True,
             gridwidth=1,
             gridcolor='lightgray',
-            griddash='dot'
+            griddash='dot',
+            dtick=900000  # <--- Perubahan di sini: 900.000 ms = 15 menit
         )
         
         st.plotly_chart(fig, use_container_width=True)
