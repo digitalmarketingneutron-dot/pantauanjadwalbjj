@@ -171,11 +171,21 @@ else:
         fig.update_yaxes(autorange="reversed")
         fig.update_traces(textposition='inside', insidetextanchor='middle')
         
+        # Konfigurasi Sumbu X Ala Penggaris (Angka per 30 menit dibuat lebih tipis)
         fig.update_xaxes(
             tickformat='%d %b\n%H:%M' if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"] else '%H:%M',
-            showgrid=True,
-            gridcolor='rgba(200, 200, 200, 0.2)', # Garis grid dibuat sangat tipis transparan
-            dtick=1800000  # Kembali ke jarak 30 menit
+            showline=True,           
+            linewidth=2,             
+            linecolor='black',       
+            ticks='outside',         
+            ticklen=6,               # Tanda jarum jam sedikit dipendekkan
+            tickwidth=1,             # Jarum jam lebih tipis
+            showgrid=True,           
+            gridwidth=1,             # Garis grid dibuat paling tipis
+            gridcolor='rgba(200, 200, 200, 0.4)', # Warna garis transparan
+            griddash='dot',          # Garis putus-putus agar tidak sumpek
+            dtick=1800000,           # Jarak per 30 Menit (1.800.000 ms)
+            tickfont=dict(size=11, color='#555555') # Angka dibuat lebih kecil dan berwarna abu-abu tua agar terlihat 'tipis'
         )
         
         st.plotly_chart(fig, use_container_width=True)
