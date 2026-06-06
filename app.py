@@ -59,7 +59,6 @@ if not df.empty:
 # 4. SIDEBAR & FILTER
 # ==========================================
 st.sidebar.header("⚙️ Filter Jadwal")
-# MENAMBAHKAN OPSI RENTANG TANGGAL
 mode = st.sidebar.radio("Mode Tampilan:", [
     "Pilih Tanggal Spesifik", 
     "Pilih Rentang Tanggal", 
@@ -75,7 +74,6 @@ if mode == "Pilih Tanggal Spesifik":
     df_filtered = df[df['Date_Obj'] == pilih_tanggal_dt].copy()
 
 elif mode == "Pilih Rentang Tanggal":
-    # FITUR BARU: RENTANG TANGGAL
     rentang_input = st.sidebar.date_input(
         "Pilih Rentang Tanggal:", 
         value=(datetime.today().date(), datetime.today().date() + pd.Timedelta(days=3))
@@ -84,18 +82,16 @@ elif mode == "Pilih Rentang Tanggal":
         if len(rentang_input) == 2:
             start_date, end_date = rentang_input
             df_filtered = df[(df['Date_Obj'] >= start_date) & (df['Date_Obj'] <= end_date)].copy()
-        elif len(rentang_input) == 1: # Jika pengguna baru klik 1 tanggal
+        elif len(rentang_input) == 1:
             start_date = rentang_input[0]
             df_filtered = df[df['Date_Obj'] == start_date].copy()
         else:
             df_filtered = df.copy()
     else:
         df_filtered = df[df['Date_Obj'] == rentang_input].copy()
-
 else:
     df_filtered = df.copy()
 
-# PENGOLAHAN WAKTU YANG AMAN UNTUK SEMUA TANGGAL
 if not df_filtered.empty:
     kolom_waktu = [col for col in df_filtered.columns if 'WAKTU' in str(col)]
     nama_kolom_waktu = kolom_waktu[0] if len(kolom_waktu) > 0 else 'WAKTU'
@@ -134,7 +130,6 @@ if df_filtered.empty:
 else:
     st.metric("Total Jadwal Ditampilkan", len(df_filtered))
     
-    # Amankan pengambilan nama kolom
     k_studio = [col for col in df_filtered.columns if 'STUDIO' in str(col)]
     k_studio = k_studio[0] if k_studio else 'STUDIO'
     
@@ -144,7 +139,6 @@ else:
     k_pengajar = [col for col in df_filtered.columns if 'PENGAJAR' in str(col)]
     k_pengajar = k_pengajar[0] if k_pengajar else 'PENGAJAR'
     
-    # Deteksi Bentrok (Dikelompokkan berdasarkan STUDIO dan TANGGAL)
     bentrok = False
     if k_studio in df_filtered.columns and k_mapel in df_filtered.columns:
         for (studio, tgl), group in df_filtered.groupby([k_studio, 'Date_Obj']):
@@ -157,12 +151,7 @@ else:
     
     if not bentrok: st.success("✅ Semua jadwal aman.")
 
-    # ==========================================
-    # VISUALISASI DENGAN TEKS & GARIS VERTIKAL
-    # ==========================================
     if k_studio in df_filtered.columns and k_pengajar in df_filtered.columns and len(df_filtered) > 0:
-        
-        # Penyesuaian Sumbu Y untuk Mode Rentang Tanggal / Semua Data
         if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"]:
             df_filtered['STUDIO_TANGGAL'] = df_filtered[k_studio].astype(str) + " (" + df_filtered['Date_Obj'].astype(str) + ")"
             y_axis_col = 'STUDIO_TANGGAL'
@@ -182,19 +171,33 @@ else:
         fig.update_yaxes(autorange="reversed")
         fig.update_traces(textposition='inside', insidetextanchor='middle')
         
-        # Konfigurasi Sumbu X
+        # Konfigurasi Sumbu X Ala Penggaris (Ruler Effect)
         fig.update_xaxes(
             tickformat='%d %b\n%H:%M' if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"] else '%H:%M',
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='lightgray',
-            griddash='dot',
-            dtick=900000  # <--- Perubahan di sini: 900.000 ms = 15 menit
+            showline=True,           # Garis dasar penggaris
+            linewidth=2,             # Ketebalan dasar penggaris
+            linecolor='black',       # Warna dasar penggaris
+            ticks='outside',         # Tanda titik berada di luar
+            ticklen=10,              # Panjang jarum jam utama
+            tickwidth=2,             # Ketebalan jarum jam utama
+            showgrid=True,           
+            gridwidth=2,             # Ketebalan garis grid utama (Per 1 Jam)
+            gridcolor='rgba(100, 100, 100, 0.4)', # Garis utama lebih pekat
+            dtick=3600000,           # Jarak utama 1 Jam (3.600.000 ms)
+            minor=dict(
+                dtick=1800000,       # Jarak minor 30 Menit (1.800.000 ms)
+                showgrid=True,       
+                gridwidth=1,         # Garis minor lebih tipis
+                gridcolor='rgba(200, 200, 200, 0.3)', # Garis minor lebih transparan/samar
+                griddash='dot',      # Garis minor dibuat putus-putus
+                ticks='outside',     
+                ticklen=5,           # Jarum jam minor lebih pendek
+                tickwidth=1          # Jarum jam minor lebih tipis
+            )
         )
         
         st.plotly_chart(fig, use_container_width=True)
 
-    # Tabel Data
     st.subheader("📋 Tabel Data")
     df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai', 'STUDIO_TANGGAL'], errors='ignore')
     st.dataframe(df_tampil.astype(str).replace(['nan', 'None', '<NA>', 'NaN'], '-'), use_container_width=True)
