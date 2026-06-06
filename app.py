@@ -172,41 +172,37 @@ else:
         fig.update_traces(textposition='inside', insidetextanchor='middle')
         
         # ==========================================
-        # ENGINE PENGGARIS CUSTOM (TEBAL & TIPIS)
+        # ENGINE PENGGARIS CUSTOM DENGAN LAYER BELOW
         # ==========================================
         min_time = df_filtered['Waktu_Mulai'].min()
         max_time = df_filtered['Waktu_Selesai'].max()
         
         if pd.notna(min_time) and pd.notna(max_time):
-            # Membulatkan jam mulai dan selesai
             start_grid = min_time.replace(minute=0, second=0)
             end_grid = max_time.replace(minute=0, second=0) + pd.Timedelta(hours=1)
             
-            # Buat rentang waktu setiap 30 menit
             grid_ticks = pd.date_range(start=start_grid, end=end_grid, freq='30min')
             
-            # Membatasi jumlah tik untuk mencegah error jika data terlalu banyak (>150 blok)
             if len(grid_ticks) <= 150:
                 tickvals = []
                 ticktext = []
                 for t in grid_ticks:
                     tickvals.append(t)
-                    x_str = t.strftime("%Y-%m-%d %H:%M:%S") # Format waktu ke garis vertikal
+                    x_str = t.strftime("%Y-%m-%d %H:%M:%S")
                     
                     if t.minute == 0:
-                        # SETTINGAN JAM TEPAT (8:00, 9:00): FONT TEBAL & GARIS TEBAL
                         lbl = t.strftime('%H:%M')
                         if mode != "Pilih Tanggal Spesifik" and (t.hour == 0 or t == start_grid):
-                            lbl = f"{t.strftime('%d %b')} {lbl}" # Tambah info tanggal di jam pertama
+                            lbl = f"{t.strftime('%d %b')} {lbl}"
                         
                         ticktext.append(f"<b><span style='font-size: 15px; color: #111111;'>{lbl}</span></b>")
-                        fig.add_vline(x=x_str, line_width=2, line_color="rgba(80, 80, 80, 0.4)")
+                        # Menambahkan layer='below' agar garis berada di belakang blok jadwal
+                        fig.add_vline(x=x_str, line_width=2, line_color="rgba(80, 80, 80, 0.4)", layer="below")
                     else:
-                        # SETTINGAN JAM SETENGAH (8:30, 9:30): FONT TIPIS & GARIS PUTUS
                         ticktext.append(f"<span style='font-size: 11px; color: #999999;'>{t.strftime('%H:%M')}</span>")
-                        fig.add_vline(x=x_str, line_width=1, line_dash="dot", line_color="rgba(180, 180, 180, 0.4)")
+                        # Menambahkan layer='below'
+                        fig.add_vline(x=x_str, line_width=1, line_dash="dot", line_color="rgba(180, 180, 180, 0.4)", layer="below")
                 
-                # Matikan grid otomatis bawaan karena sudah digambar manual
                 fig.update_xaxes(
                     tickmode='array',
                     tickvals=tickvals,
@@ -220,7 +216,6 @@ else:
                     ticklen=6
                 )
             else:
-                # Fallback aman jika data rentangnya sampai berbulan-bulan
                 fig.update_xaxes(
                     tickformat='%d %b\n%H:%M' if mode != "Pilih Tanggal Spesifik" else '%H:%M',
                     showline=True, linewidth=2, linecolor='black',
