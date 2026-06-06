@@ -171,22 +171,62 @@ else:
         fig.update_yaxes(autorange="reversed")
         fig.update_traces(textposition='inside', insidetextanchor='middle')
         
-        # Konfigurasi Sumbu X Ala Penggaris (Angka per 30 menit dibuat lebih tipis)
-        fig.update_xaxes(
-            tickformat='%d %b\n%H:%M' if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"] else '%H:%M',
-            showline=True,           
-            linewidth=2,             
-            linecolor='black',       
-            ticks='outside',         
-            ticklen=6,               # Tanda jarum jam sedikit dipendekkan
-            tickwidth=1,             # Jarum jam lebih tipis
-            showgrid=True,           
-            gridwidth=1,             # Garis grid dibuat paling tipis
-            gridcolor='rgba(200, 200, 200, 0.4)', # Warna garis transparan
-            griddash='dot',          # Garis putus-putus agar tidak sumpek
-            dtick=1800000,           # Jarak per 30 Menit (1.800.000 ms)
-            tickfont=dict(size=11, color='#555555') # Angka dibuat lebih kecil dan berwarna abu-abu tua agar terlihat 'tipis'
-        )
+        # ==========================================
+        # ENGINE PENGGARIS CUSTOM (TEBAL & TIPIS)
+        # ==========================================
+        min_time = df_filtered['Waktu_Mulai'].min()
+        max_time = df_filtered['Waktu_Selesai'].max()
+        
+        if pd.notna(min_time) and pd.notna(max_time):
+            # Membulatkan jam mulai dan selesai
+            start_grid = min_time.replace(minute=0, second=0)
+            end_grid = max_time.replace(minute=0, second=0) + pd.Timedelta(hours=1)
+            
+            # Buat rentang waktu setiap 30 menit
+            grid_ticks = pd.date_range(start=start_grid, end=end_grid, freq='30min')
+            
+            # Membatasi jumlah tik untuk mencegah error jika data terlalu banyak (>150 blok)
+            if len(grid_ticks) <= 150:
+                tickvals = []
+                ticktext = []
+                for t in grid_ticks:
+                    tickvals.append(t)
+                    x_str = t.strftime("%Y-%m-%d %H:%M:%S") # Format waktu ke garis vertikal
+                    
+                    if t.minute == 0:
+                        # SETTINGAN JAM TEPAT (8:00, 9:00): FONT TEBAL & GARIS TEBAL
+                        lbl = t.strftime('%H:%M')
+                        if mode != "Pilih Tanggal Spesifik" and (t.hour == 0 or t == start_grid):
+                            lbl = f"{t.strftime('%d %b')} {lbl}" # Tambah info tanggal di jam pertama
+                        
+                        ticktext.append(f"<b><span style='font-size: 15px; color: #111111;'>{lbl}</span></b>")
+                        fig.add_vline(x=x_str, line_width=2, line_color="rgba(80, 80, 80, 0.4)")
+                    else:
+                        # SETTINGAN JAM SETENGAH (8:30, 9:30): FONT TIPIS & GARIS PUTUS
+                        ticktext.append(f"<span style='font-size: 11px; color: #999999;'>{t.strftime('%H:%M')}</span>")
+                        fig.add_vline(x=x_str, line_width=1, line_dash="dot", line_color="rgba(180, 180, 180, 0.4)")
+                
+                # Matikan grid otomatis bawaan karena sudah digambar manual
+                fig.update_xaxes(
+                    tickmode='array',
+                    tickvals=tickvals,
+                    ticktext=ticktext,
+                    showgrid=False,
+                    showline=True,
+                    linewidth=2,
+                    linecolor='black',
+                    ticks='outside',
+                    tickwidth=1,
+                    ticklen=6
+                )
+            else:
+                # Fallback aman jika data rentangnya sampai berbulan-bulan
+                fig.update_xaxes(
+                    tickformat='%d %b\n%H:%M' if mode != "Pilih Tanggal Spesifik" else '%H:%M',
+                    showline=True, linewidth=2, linecolor='black',
+                    showgrid=True, gridwidth=1, gridcolor='rgba(200,200,200,0.4)', griddash='dot',
+                    dtick=1800000
+                )
         
         st.plotly_chart(fig, use_container_width=True)
 
