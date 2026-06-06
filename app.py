@@ -171,29 +171,11 @@ else:
         fig.update_yaxes(autorange="reversed")
         fig.update_traces(textposition='inside', insidetextanchor='middle')
         
-        # Konfigurasi Sumbu X Ala Penggaris (Ruler Effect)
         fig.update_xaxes(
             tickformat='%d %b\n%H:%M' if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"] else '%H:%M',
-            showline=True,           # Garis dasar penggaris
-            linewidth=2,             # Ketebalan dasar penggaris
-            linecolor='black',       # Warna dasar penggaris
-            ticks='outside',         # Tanda titik berada di luar
-            ticklen=10,              # Panjang jarum jam utama
-            tickwidth=2,             # Ketebalan jarum jam utama
-            showgrid=True,           
-            gridwidth=2,             # Ketebalan garis grid utama (Per 1 Jam)
-            gridcolor='rgba(100, 100, 100, 0.4)', # Garis utama lebih pekat
-            dtick=3600000,           # Jarak utama 1 Jam (3.600.000 ms)
-            minor=dict(
-                dtick=1800000,       # Jarak minor 30 Menit (1.800.000 ms)
-                showgrid=True,       
-                gridwidth=1,         # Garis minor lebih tipis
-                gridcolor='rgba(200, 200, 200, 0.3)', # Garis minor lebih transparan/samar
-                griddash='dot',      # Garis minor dibuat putus-putus
-                ticks='outside',     
-                ticklen=5,           # Jarum jam minor lebih pendek
-                tickwidth=1          # Jarum jam minor lebih tipis
-            )
+            showgrid=True,
+            gridcolor='rgba(200, 200, 200, 0.2)', # Garis grid dibuat sangat tipis transparan
+            dtick=1800000  # Kembali ke jarak 30 menit
         )
         
         st.plotly_chart(fig, use_container_width=True)
