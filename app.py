@@ -139,7 +139,12 @@ else:
     k_pengajar = [col for col in df_filtered.columns if 'PENGAJAR' in str(col)]
     k_pengajar = k_pengajar[0] if k_pengajar else 'PENGAJAR'
     
+    # ==========================================
+    # SISTEM DETEKSI BENTROK PINTAR
+    # ==========================================
     bentrok = False
+    bentrok_indices = set()
+    
     if k_studio in df_filtered.columns and k_mapel in df_filtered.columns:
         for (studio, tgl), group in df_filtered.groupby([k_studio, 'Date_Obj']):
             group = group.sort_values('Waktu_Mulai')
@@ -147,9 +152,20 @@ else:
                 if group.iloc[i+1]['Waktu_Mulai'] < group.iloc[i]['Waktu_Selesai']:
                     tgl_str = tgl.strftime('%d-%b-%Y') if pd.notna(tgl) else "Tanggal Tidak Diketahui"
                     st.error(f"⚠️ Bentrok di **{studio}** pada **{tgl_str}** antara {group.iloc[i][k_mapel]} dan {group.iloc[i+1][k_mapel]}")
+                    
+                    # Menyimpan ID baris yang bentrok untuk ditampilkan di tabel khusus
+                    bentrok_indices.add(group.index[i])
+                    bentrok_indices.add(group.index[i+1])
                     bentrok = True
     
-    if not bentrok: st.success("✅ Semua jadwal aman.")
+    # Menampilkan Tabel Khusus Jika Ada Bentrok
+    if bentrok:
+        st.warning("🚨 **TABEL EVALUASI: Rincian Jadwal yang Bentrok (Harap Segera Direvisi):**")
+        df_bentrok = df_filtered.loc[list(bentrok_indices)].sort_values(['Date_Obj', k_studio, 'Waktu_Mulai'])
+        df_tampil_bentrok = df_bentrok.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai', 'STUDIO_TANGGAL'], errors='ignore')
+        st.dataframe(df_tampil_bentrok.astype(str).replace(['nan', 'None', '<NA>', 'NaN'], '-'), use_container_width=True)
+    else:
+        st.success("✅ Semua jadwal aman. Tidak ada tumpang tindih.")
 
     if k_studio in df_filtered.columns and k_pengajar in df_filtered.columns and len(df_filtered) > 0:
         if mode in ["Tampilkan Semua Data", "Pilih Rentang Tanggal"]:
@@ -165,7 +181,8 @@ else:
             y=y_axis_col, 
             color=k_pengajar, 
             hover_name=k_mapel,
-            text=k_pengajar
+            text=k_pengajar,
+            opacity=0.7 # FITUR BARU: Efek transparan agar blok yang tumpang tindih terlihat saling menimpa
         )
         
         fig.update_yaxes(autorange="reversed")
@@ -196,11 +213,9 @@ else:
                             lbl = f"{t.strftime('%d %b')} {lbl}"
                         
                         ticktext.append(f"<b><span style='font-size: 15px; color: #111111;'>{lbl}</span></b>")
-                        # Menambahkan layer='below' agar garis berada di belakang blok jadwal
                         fig.add_vline(x=x_str, line_width=2, line_color="rgba(80, 80, 80, 0.4)", layer="below")
                     else:
                         ticktext.append(f"<span style='font-size: 11px; color: #999999;'>{t.strftime('%H:%M')}</span>")
-                        # Menambahkan layer='below'
                         fig.add_vline(x=x_str, line_width=1, line_dash="dot", line_color="rgba(180, 180, 180, 0.4)", layer="below")
                 
                 fig.update_xaxes(
@@ -225,6 +240,6 @@ else:
         
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("📋 Tabel Data")
+    st.subheader("📋 Tabel Data Semua Jadwal")
     df_tampil = df_filtered.drop(columns=['Date_Obj', 'Waktu_Mulai', 'Waktu_Selesai', 'STUDIO_TANGGAL'], errors='ignore')
     st.dataframe(df_tampil.astype(str).replace(['nan', 'None', '<NA>', 'NaN'], '-'), use_container_width=True)
